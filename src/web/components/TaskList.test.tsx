@@ -76,3 +76,60 @@ describe("TaskList", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("TaskList completing a task", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  const alreadyCompleted = { error: { code: "conflict", message: "Task task-1 is already completed" } };
+  const completedTask: TaskView = { ...task, status: "completed", completedAt: "2026-03-10T09:00:00.000Z", isOverdue: false };
+
+  /** Serves `lists` in order for each GET (repeating the last), and `completion` for the POST. */
+  function mockServer(lists: TaskView[][], completion: Response) {
+    let listCalls = 0;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return completion;
+      return json({ tasks: lists[Math.min(listCalls++, lists.length - 1)] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("refreshes the list when completing fails, so a task completed elsewhere stops looking open", async () => {
+    mockServer([[task], [completedTask]], json(alreadyCompleted, 409));
+
+    render(<TaskList view="all" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Mark complete" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("already completed");
+    expect(await screen.findByText("Completed")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mark complete" })).toBeNull();
+  });
+
+  it("keeps the failure message visible when the refreshed list is empty", async () => {
+    mockServer([[task], []], json(alreadyCompleted, 409));
+
+    render(<TaskList view="overdue" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Mark complete" }));
+
+    expect(await screen.findByText("No overdue tasks. Everyone is caught up.")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("already completed");
+  });
+
+  it("clears the failure message when the filters change", async () => {
+    mockServer([[task]], json(alreadyCompleted, 409));
+
+    const { rerender } = render(<TaskList view="all" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Mark complete" }));
+    await screen.findByRole("alert");
+
+    rerender(<TaskList view="all" repId="u-alicia" />);
+
+    await screen.findByText("Confirm install date");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});

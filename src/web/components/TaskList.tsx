@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { TaskStatus, TaskView } from "../../shared/types";
 import { api } from "../api/client";
@@ -29,16 +29,20 @@ export function TaskList({ view, repId, status }: TaskListProps) {
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // A failure message belongs to the list it happened on, not to the next one.
+  useEffect(() => setActionError(null), [view, repId, status]);
+
   async function completeTask(task: TaskView) {
     setPendingTaskId(task.id);
     setActionError(null);
     try {
       await api.completeTask(task.id);
-      tasks.reload();
     } catch (error) {
       setActionError(`Could not complete "${task.title}": ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setPendingTaskId(null);
+      // Reload even after a failure: the task may have been completed elsewhere or moved out of view.
+      tasks.reload();
     }
   }
 
@@ -64,10 +68,6 @@ export function TaskList({ view, repId, status }: TaskListProps) {
     );
   }
 
-  if (rows.length === 0) {
-    return <p className="state state-empty">{emptyMessages[view]}</p>;
-  }
-
   return (
     <>
       {actionError && (
@@ -75,10 +75,16 @@ export function TaskList({ view, repId, status }: TaskListProps) {
           {actionError}
         </p>
       )}
-      <p className="muted">
-        {rows.length} {rows.length === 1 ? "task" : "tasks"}
-      </p>
-      <TaskTable tasks={rows} pendingTaskId={pendingTaskId} onComplete={completeTask} />
+      {rows.length === 0 ? (
+        <p className="state state-empty">{emptyMessages[view]}</p>
+      ) : (
+        <>
+          <p className="muted">
+            {rows.length} {rows.length === 1 ? "task" : "tasks"}
+          </p>
+          <TaskTable tasks={rows} pendingTaskId={pendingTaskId} onComplete={completeTask} />
+        </>
+      )}
     </>
   );
 }
