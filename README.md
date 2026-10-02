@@ -120,7 +120,7 @@ src/
     ├── main.tsx, App.tsx  application shell, account switcher, views and filters
     ├── api/               fetch client for the API
     ├── hooks/             data-loading hook
-    └── components/        task list, table, and filter components
+    └── components/        task list, table, team summary, and filter components
 docs/
 ├── domain.md              concepts and business rules
 └── api.md                 HTTP API reference

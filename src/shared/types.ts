@@ -61,6 +61,21 @@ export interface TaskResponse {
   task: TaskView;
 }
 
+/** One rep's open work, as counted for the manager's team summary. */
+export interface RepWorkload {
+  rep: { id: string; name: string };
+  team: TeamSummary;
+  /** Open tasks, overdue ones included. */
+  openCount: number;
+  overdueCount: number;
+  /** Due time of the rep's longest-overdue task; `null` when nothing is overdue. */
+  oldestOverdueDueAt: string | null;
+}
+
+export interface TaskSummaryResponse {
+  reps: RepWorkload[];
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

@@ -117,6 +117,39 @@ Lists overdue tasks visible to the signed-in user, ordered by due time
 
 Response: `{ "tasks": [Task, ...] }`
 
+### `GET /api/tasks/summary`
+
+Managers only. Summarizes open work for every rep on the teams the signed-in
+manager leads, including reps with nothing open. Reps receive `403`.
+
+Counts use the same visibility and [overdue](domain.md#overdue) rules as the
+task lists, so a rep's `overdueCount` always matches the length of
+`GET /api/tasks/overdue?repId=<rep>`.
+
+Reps are ordered most behind first: by `overdueCount` (highest first), then by
+`oldestOverdueDueAt` (earliest first, reps with nothing overdue last), then by
+name.
+
+```json
+{
+  "reps": [
+    {
+      "rep": { "id": "u-jordan", "name": "Jordan Pike" },
+      "team": { "id": "team-north", "name": "North Metro" },
+      "openCount": 2,
+      "overdueCount": 1,
+      "oldestOverdueDueAt": "2026-03-07T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `openCount` | Open tasks assigned to the rep, overdue ones included |
+| `overdueCount` | Open tasks that are overdue |
+| `oldestOverdueDueAt` | Due time of the rep's longest-overdue task; `null` when nothing is overdue |
+
 ### `POST /api/tasks/:taskId/complete`
 
 Marks an open task as completed. The task must be visible to the signed-in

@@ -5,13 +5,17 @@ import { api, setSessionToken } from "./api/client";
 import { AccountSwitcher } from "./components/AccountSwitcher";
 import { RepFilter } from "./components/RepFilter";
 import { TaskList, type TaskListView } from "./components/TaskList";
+import { TeamSummary } from "./components/TeamSummary";
 import { useAsync } from "./hooks/useAsync";
 import { loadSavedToken, saveToken } from "./session";
 
-const tabs: { id: TaskListView; label: string }[] = [
+type WorkspaceView = TaskListView | "team";
+
+const taskTabs: { id: WorkspaceView; label: string }[] = [
   { id: "all", label: "Tasks" },
   { id: "overdue", label: "Overdue" },
 ];
+const managerTabs: { id: WorkspaceView; label: string }[] = [...taskTabs, { id: "team", label: "Team" }];
 
 export function App() {
   const accounts = useAsync(async () => (await api.demoAccounts()).accounts, []);
@@ -63,7 +67,7 @@ function Workspace() {
   const isManager = me.status === "success" && me.data.user.role === "manager";
   const reps = useAsync(async () => (isManager ? (await api.teamReps()).reps : []), [isManager]);
 
-  const [view, setView] = useState<TaskListView>("all");
+  const [view, setView] = useState<WorkspaceView>("all");
   const [repId, setRepId] = useState("");
   const [status, setStatus] = useState<TaskStatus | "">("open");
 
@@ -86,6 +90,12 @@ function Workspace() {
   }
 
   const teamNames = me.data.teams.map((team) => team.name).join(", ");
+  const tabs = isManager ? managerTabs : taskTabs;
+
+  function showOverdueFor(nextRepId: string) {
+    setRepId(nextRepId);
+    setView("overdue");
+  }
 
   return (
     <section>
@@ -106,21 +116,37 @@ function Workspace() {
         </nav>
       </div>
 
-      <div className="filters">
-        {isManager && reps.status === "success" && <RepFilter reps={reps.data} value={repId} onChange={setRepId} />}
-        {view === "all" && (
-          <label className="filter">
-            <span>Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}>
-              <option value="open">Open</option>
-              <option value="completed">Completed</option>
-              <option value="">All</option>
-            </select>
-          </label>
-        )}
-      </div>
+      {view === "team" ? (
+        <div className="team-view">
+          <TeamSummary onSelectRep={showOverdueFor} />
+        </div>
+      ) : (
+        <>
+          <div className="filters">
+            {isManager && reps.status === "success" && <RepFilter reps={reps.data} value={repId} onChange={setRepId} />}
+            {isManager && reps.status === "error" && (
+              <p className="filter filter-error" role="alert">
+                Could not load reps, so the rep filter is unavailable.
+                <button type="button" onClick={reps.reload} aria-label="Retry loading reps">
+                  Try again
+                </button>
+              </p>
+            )}
+            {view === "all" && (
+              <label className="filter">
+                <span>Status</span>
+                <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}>
+                  <option value="open">Open</option>
+                  <option value="completed">Completed</option>
+                  <option value="">All</option>
+                </select>
+              </label>
+            )}
+          </div>
 
-      <TaskList view={view} repId={repId || undefined} status={status || undefined} />
+          <TaskList view={view} repId={repId || undefined} status={status || undefined} />
+        </>
+      )}
     </section>
   );
 }

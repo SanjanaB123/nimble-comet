@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
 
-import type { TaskListResponse, TaskResponse } from "../../shared/types";
+import type { TaskListResponse, TaskResponse, TaskSummaryResponse } from "../../shared/types";
 import { requestContext } from "../auth/authenticate";
 import type { TaskService } from "../domain/taskService";
 import { optionalString, optionalTaskStatus } from "./query";
@@ -21,6 +21,11 @@ export function taskRoutes(taskService: TaskService, auth: RequestHandler): Rout
       repId: optionalString(req.query.repId, "repId"),
     });
     res.json({ tasks } satisfies TaskListResponse);
+  });
+
+  router.get("/summary", auth, async (_req, res) => {
+    const reps = await taskService.summarizeByRep(requestContext(res));
+    res.json({ reps } satisfies TaskSummaryResponse);
   });
 
   router.post<"/:taskId/complete", { taskId: string }>("/:taskId/complete", auth, async (req, res) => {

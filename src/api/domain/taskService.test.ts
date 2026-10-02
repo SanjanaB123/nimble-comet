@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { buildRequestContext, type RequestContext } from "../auth/requestContext";
-import { createFixtureData } from "../fixtures/data";
+import { createFixtureData, type FixtureData } from "../fixtures/data";
 import { FixtureDirectoryRepository, FixtureTaskRepository } from "../repository/fixtureRepository";
 import { fixedClock } from "./clock";
 import { ForbiddenError, NotFoundError } from "./errors";
@@ -9,23 +9,27 @@ import { createTaskQueryRegistry, TaskQueryEngine, TaskScopeResolver } from "./t
 import { TaskService } from "./taskService";
 
 const referenceTime = new Date("2026-03-10T15:00:00.000Z");
+const hoursFromReference = (hours: number) => new Date(referenceTime.getTime() + hours * 60 * 60 * 1000).toISOString();
+
+let directory: FixtureDirectoryRepository;
+let service: TaskService;
+
+function useData(data: FixtureData) {
+  directory = new FixtureDirectoryRepository(data);
+  const tasks = new FixtureTaskRepository(data);
+  const clock = fixedClock(referenceTime);
+  const queries = new TaskQueryEngine(createTaskQueryRegistry(), new TaskScopeResolver(directory), tasks, clock);
+  service = new TaskService(tasks, directory, queries, clock);
+}
+
+async function contextFor(userId: string): Promise<RequestContext> {
+  const user = await directory.findUserById(userId);
+  return buildRequestContext(user!, directory);
+}
 
 describe("TaskService", () => {
-  let directory: FixtureDirectoryRepository;
-  let service: TaskService;
-
-  async function contextFor(userId: string): Promise<RequestContext> {
-    const user = await directory.findUserById(userId);
-    return buildRequestContext(user!, directory);
-  }
-
   beforeEach(() => {
-    const data = createFixtureData(referenceTime);
-    directory = new FixtureDirectoryRepository(data);
-    const tasks = new FixtureTaskRepository(data);
-    const clock = fixedClock(referenceTime);
-    const queries = new TaskQueryEngine(createTaskQueryRegistry(), new TaskScopeResolver(directory), tasks, clock);
-    service = new TaskService(tasks, directory, queries, clock);
+    useData(createFixtureData(referenceTime));
   });
 
   it("lists every task on the manager's team, ordered by due time", async () => {
@@ -94,5 +98,127 @@ describe("TaskService", () => {
     await expect(service.completeTask(marcus, "task-1004")).rejects.toThrow(NotFoundError);
     const [alicias] = await service.listTasks(await contextFor("u-dana"), { repId: "u-alicia", status: "open" });
     expect(alicias?.id).toBe("task-1004");
+  });
+});
+
+describe("TaskService.summarizeByRep", () => {
+  beforeEach(() => {
+    useData(createFixtureData(referenceTime));
+  });
+
+  const rows = (summary: Awaited<ReturnType<TaskService["summarizeByRep"]>>) =>
+    summary.map((row) => [row.rep.name, row.overdueCount, row.openCount]);
+
+  it("counts open and overdue tasks for each rep on the manager's team", async () => {
+    const summary = await service.summarizeByRep(await contextFor("u-dana"));
+
+    expect(rows(summary)).toEqual([
+      ["Jordan Pike", 1, 2],
+      ["Marcus Bell", 1, 2],
+      ["Alicia Chen", 1, 2],
+    ]);
+    expect(summary[0]).toEqual({
+      rep: { id: "u-jordan", name: "Jordan Pike" },
+      team: { id: "team-north", name: "North Metro" },
+      openCount: 2,
+      overdueCount: 1,
+      oldestOverdueDueAt: hoursFromReference(-75),
+    });
+  });
+
+  it("breaks ties on overdue count by the longest-overdue task", async () => {
+    const summary = await service.summarizeByRep(await contextFor("u-dana"));
+
+    expect(summary.map((row) => row.oldestOverdueDueAt)).toEqual([
+      hoursFromReference(-75),
+      hoursFromReference(-30),
+      hoursFromReference(-6),
+    ]);
+  });
+
+  it("puts the rep with the most overdue tasks first, even if their oldest is more recent", async () => {
+    const data = createFixtureData(referenceTime);
+    data.tasks.push({ ...data.tasks.find((task) => task.id === "task-1004")!, id: "task-1010", dueAt: hoursFromReference(-1) });
+    useData(data);
+
+    const summary = await service.summarizeByRep(await contextFor("u-dana"));
+
+    expect(rows(summary)[0]).toEqual(["Alicia Chen", 2, 3]);
+    expect(summary[0]!.oldestOverdueDueAt).toBe(hoursFromReference(-6));
+  });
+
+  it("includes reps with no open work, after everyone who is behind", async () => {
+    const dana = await contextFor("u-dana");
+    await service.completeTask(dana, "task-1007");
+    await service.completeTask(dana, "task-1008");
+
+    const summary = await service.summarizeByRep(dana);
+
+    expect(rows(summary)).toEqual([
+      ["Marcus Bell", 1, 2],
+      ["Alicia Chen", 1, 2],
+      ["Jordan Pike", 0, 0],
+    ]);
+    expect(summary[2]!.oldestOverdueDueAt).toBeNull();
+  });
+
+  it("orders reps who are all caught up by name", async () => {
+    const dana = await contextFor("u-dana");
+    for (const taskId of ["task-1001", "task-1004", "task-1007"]) {
+      await service.completeTask(dana, taskId);
+    }
+
+    const summary = await service.summarizeByRep(dana);
+
+    expect(rows(summary)).toEqual([
+      ["Alicia Chen", 0, 1],
+      ["Jordan Pike", 0, 1],
+      ["Marcus Bell", 0, 1],
+    ]);
+  });
+
+  it("does not count completed tasks, however late they were", async () => {
+    const summary = await service.summarizeByRep(await contextFor("u-dana"));
+    const openTasks = await service.listTasks(await contextFor("u-dana"), { status: "open" });
+
+    expect(summary.reduce((total, row) => total + row.openCount, 0)).toBe(openTasks.length);
+  });
+
+  it("agrees with the overdue list", async () => {
+    for (const managerId of ["u-dana", "u-luis", "u-priya"]) {
+      const context = await contextFor(managerId);
+      const summary = await service.summarizeByRep(context);
+      const overdue = await service.listOverdueTasks(context);
+
+      for (const row of summary) {
+        expect(row.overdueCount).toBe(overdue.filter((task) => task.assignee.id === row.rep.id).length);
+      }
+    }
+  });
+
+  it("covers every team a manager leads, labelled by team", async () => {
+    const data = createFixtureData(referenceTime);
+    data.teams.find((team) => team.id === "team-south")!.managerId = "u-dana";
+    useData(data);
+
+    const summary = await service.summarizeByRep(await contextFor("u-dana"));
+
+    expect(summary.map((row) => `${row.rep.name} (${row.team.name})`).sort()).toEqual([
+      "Alicia Chen (North Metro)",
+      "Jordan Pike (North Metro)",
+      "Marcus Bell (North Metro)",
+      "Rita Alvarez (South Valley)",
+      "Sam Okafor (South Valley)",
+    ]);
+  });
+
+  it("only includes the manager's own reps", async () => {
+    const summary = await service.summarizeByRep(await contextFor("u-luis"));
+
+    expect(summary.map((row) => row.rep.id).sort()).toEqual(["u-rita", "u-sam"]);
+  });
+
+  it("is not available to reps", async () => {
+    await expect(service.summarizeByRep(await contextFor("u-marcus"))).rejects.toThrow(ForbiddenError);
   });
 });

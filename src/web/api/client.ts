@@ -5,6 +5,7 @@ import type {
   TaskListResponse,
   TaskResponse,
   TaskStatus,
+  TaskSummaryResponse,
   TeamRepsResponse,
 } from "../../shared/types";
 
@@ -63,6 +64,7 @@ export const api = {
   listTasks: (params: TaskListParams = {}) => request<TaskListResponse>(withQuery("/api/tasks", { ...params })),
   listOverdueTasks: (params: Pick<TaskListParams, "repId"> = {}) =>
     request<TaskListResponse>(withQuery("/api/tasks/overdue", { ...params })),
+  taskSummary: () => request<TaskSummaryResponse>("/api/tasks/summary"),
   completeTask: (taskId: string) =>
     request<TaskResponse>(`/api/tasks/${encodeURIComponent(taskId)}/complete`, { method: "POST" }),
 };

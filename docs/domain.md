@@ -64,6 +64,10 @@ user's visibility are reported as not found when they try to act on them.
 - **Tasks** lists the visible tasks, filtered by status (open by default) and,
   for managers, by rep.
 - **Overdue** lists visible overdue tasks, optionally filtered by rep.
+- **Team** (managers only) shows each rep on the manager's teams with their
+  overdue and open counts and their longest-overdue due date, most behind
+  first. A rep's **View overdue** button opens the Overdue view filtered to
+  that rep. Tasks stays the default view.
 
 Each view shows a loading message while it fetches, the tasks when some are
 returned, an empty message when the request succeeds with no tasks, and an

@@ -118,3 +118,48 @@ describe("HTTP error responses", () => {
     expect(response.body.error.code).toBe("not_found");
   });
 });
+
+describe("GET /api/tasks/summary", () => {
+  let app: ReturnType<typeof createApp>;
+
+  beforeEach(() => {
+    app = createApp({ clock: fixedClock(referenceTime), data: createFixtureData(referenceTime) });
+  });
+
+  it("returns each rep's workload for a manager, most behind first", async () => {
+    const response = await request(app).get("/api/tasks/summary").set("Authorization", "Bearer demo-dana");
+
+    expect(response.status).toBe(200);
+    expect(response.body.reps.map((row: { rep: { id: string } }) => row.rep.id)).toEqual(["u-jordan", "u-marcus", "u-alicia"]);
+    expect(response.body.reps[0]).toEqual({
+      rep: { id: "u-jordan", name: "Jordan Pike" },
+      team: { id: "team-north", name: "North Metro" },
+      openCount: 2,
+      overdueCount: 1,
+      oldestOverdueDueAt: "2026-03-07T12:00:00.000Z",
+    });
+  });
+
+  it("reflects a task completed since the last request", async () => {
+    await request(app).post("/api/tasks/task-1007/complete").set("Authorization", "Bearer demo-dana");
+
+    const response = await request(app).get("/api/tasks/summary").set("Authorization", "Bearer demo-dana");
+    const jordan = response.body.reps.find((row: { rep: { id: string } }) => row.rep.id === "u-jordan");
+
+    expect(jordan).toMatchObject({ openCount: 1, overdueCount: 0, oldestOverdueDueAt: null });
+  });
+
+  it("returns 403 for a rep", async () => {
+    const response = await request(app).get("/api/tasks/summary").set("Authorization", "Bearer demo-marcus");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("forbidden");
+  });
+
+  it("returns 401 without a token", async () => {
+    const response = await request(app).get("/api/tasks/summary");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("unauthenticated");
+  });
+});
