@@ -1,7 +1,7 @@
 # Submission
 
-Start time: TODO
-End time: TODO
+Start time: 3:28 PM
+End time: 4:43 PM
 
 ## Opportunities, ranked
 
@@ -81,18 +81,35 @@ End time: TODO
 
 ## Working with AI
 
-<!-- DRAFT NOTES: rewrite this section in your own words; reviewers read it as your account. -->
+I used Claude Code for the whole timebox.
 
-- TODO: how you directed the work. For example: asked for a read of the docs first, then a
-  docs-vs-code comparison, and for every fix: reproduce as failing tests → plan → approve → implement.
-- TODO: suggestions you **rejected or changed**:
-  - Claude created a feature branch with a long commit message; you stopped it and committed to
-    `main` with short messages, as the brief allows.
-  - You parked the lint fix.
-- TODO: a claim you **corrected**: Claude said you were on Node 25 (that was its own shell); you
-  showed you were on 22.17.1.
-- TODO: what you **verified yourself** rather than trusting: you re-ran the tests and the `curl`
-  checks and tested the Overdue filter in the browser before pushing.
-- TODO (optional): **an AI mistake during verification**: Claude clicked by screen position in the
-  browser and accidentally completed a task. Claude noticed, reported it, reset the in-memory data,
-  and switched to clicking by element reference.
+- **How I directed it:**
+  - I started by having it read the README and docs and explain the data flow, before touching code.
+  - I then asked it to compare the documented rules against `src/api` and `src/web` and list every
+    inconsistency.
+  - For each fix I used the same loop: reproduce the problem as failing tests, get an implementation
+    plan, review it and approve, then implement.
+  - I chose the order: the two security bugs first, then the HTTP errors, then the web app bugs,
+    then the Team feature, then the refactor.
+- **Accepted:** its recommendations on the Team feature: compute the counts on the server rather
+  than in the browser, use `/api/tasks/summary`, and keep Tasks as the default tab. I asked it to
+  add test coverage at every level.
+- **Rejected or changed:**
+  - It created a feature branch with a long commit message. I stopped that and had it commit to
+    `main` with short messages, which the brief allows.
+  - I parked the ESLint fix twice to keep the time on user-facing work.
+- **Questioned instead of accepting:**
+  - It labelled three web issues "minor". I had it test all three before deciding. Two turned out
+    to be documented behaviour (left alone); one was a real silent failure (fixed).
+  - I noticed only 2 of 7 reps can sign in and asked whether reps should sign in at all. I had it
+    check the docs first; they specify that exact demo set, so nothing changed.
+  - I asked whether the unused CSS hinted at planned work. It found no supporting rule or reference,
+    so I left it.
+- **Corrected:** it said I was on Node 25. That was its own shell; my terminal showed Node 22.17.1
+  from `.nvmrc`, and I re-ran the suite there.
+- **Verified myself:** I ran `npm test` and `npm run typecheck`, ran every `curl` check against the
+  running API, and tested the Overdue filter and the Team feature in the browser before pushing them.
+  The final refactor relied on the automated tests, including a check that they fail on the old bug.
+- **AI mistake during verification:** while checking the Team tab in the browser, it clicked by
+  screen position and accidentally completed a task. It caught and reported this, restarted the
+  API to reset the in-memory data, and switched to clicking by element reference.

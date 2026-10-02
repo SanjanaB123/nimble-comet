@@ -71,4 +71,5 @@ user's visibility are reported as not found when they try to act on them.
 
 Each view shows a loading message while it fetches, the tasks when some are
 returned, an empty message when the request succeeds with no tasks, and an
-error message with a retry button when the request fails.
+error message with a retry button when the request fails. If a manager's rep
+list fails to load, the rep filter is replaced by an error with a retry button.
