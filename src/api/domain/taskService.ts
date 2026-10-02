@@ -44,7 +44,7 @@ export class TaskService {
   private canAccess(context: RequestContext, task: Task): boolean {
     return context.scope.kind === "teams"
       ? context.scope.teamIds.includes(task.teamId)
-      : task.teamId === context.user.teamId;
+      : task.assigneeId === context.scope.userId;
   }
 
   private async toViews(tasks: Task[]): Promise<TaskView[]> {

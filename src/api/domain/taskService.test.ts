@@ -4,6 +4,7 @@ import { buildRequestContext, type RequestContext } from "../auth/requestContext
 import { createFixtureData } from "../fixtures/data";
 import { FixtureDirectoryRepository, FixtureTaskRepository } from "../repository/fixtureRepository";
 import { fixedClock } from "./clock";
+import { ForbiddenError, NotFoundError } from "./errors";
 import { createTaskQueryRegistry, TaskQueryEngine, TaskScopeResolver } from "./taskQueries";
 import { TaskService } from "./taskService";
 
@@ -55,11 +56,43 @@ describe("TaskService", () => {
     expect(tasks.every((task) => task.isOverdue)).toBe(true);
   });
 
+  it("narrows a manager's overdue list to a single rep", async () => {
+    const tasks = await service.listOverdueTasks(await contextFor("u-dana"), { repId: "u-alicia" });
+
+    expect(tasks.map((task) => task.id)).toEqual(["task-1004"]);
+  });
+
+  it("rejects an overdue request for a rep outside the manager's teams", async () => {
+    await expect(service.listOverdueTasks(await contextFor("u-dana"), { repId: "u-sam" })).rejects.toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it("rejects an overdue request from a rep for someone else's tasks", async () => {
+    await expect(service.listOverdueTasks(await contextFor("u-marcus"), { repId: "u-alicia" })).rejects.toThrow(
+      ForbiddenError,
+    );
+  });
+
   it("completes a task and records the completion time", async () => {
     const task = await service.completeTask(await contextFor("u-dana"), "task-1006");
 
     expect(task.status).toBe("completed");
     expect(task.completedAt).toBe(referenceTime.toISOString());
     expect(task.isOverdue).toBe(false);
+  });
+
+  it("lets a rep complete their own task", async () => {
+    const task = await service.completeTask(await contextFor("u-marcus"), "task-1003");
+
+    expect(task.status).toBe("completed");
+  });
+
+  it("reports a teammate's task as not found when a rep tries to complete it", async () => {
+    const marcus = await contextFor("u-marcus");
+
+    await expect(service.completeTask(marcus, "task-1004")).rejects.toThrow(NotFoundError);
+    const [alicias] = await service.listTasks(await contextFor("u-dana"), { repId: "u-alicia", status: "open" });
+    expect(alicias?.id).toBe("task-1004");
   });
 });

@@ -11,7 +11,7 @@ export const allTasksQuery: TaskQueryDefinition = {
 
 export const overdueTasksQuery: TaskQueryDefinition = {
   name: "overdue",
-  accepts: ["status"],
+  accepts: ["repId"],
   criteria: [hasStatus("open"), overdueAtRequestTime],
   order: compareByDueDate,
 };
