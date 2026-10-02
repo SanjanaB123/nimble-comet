@@ -1,0 +1,44 @@
+{
+  "name": "field-operations",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Follow-up task tracking for field sales teams",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors blue,green \"tsx watch src/api/server.ts\" \"vite\"",
+    "dev:api": "tsx watch src/api/server.ts",
+    "dev:web": "vite",
+    "start:api": "tsx src/api/server.ts",
+    "build": "tsc -p tsconfig.json && vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/express": "5.0.6",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/supertest": "7.2.1",
+    "@vitejs/plugin-react": "6.1.1",
+    "concurrently": "10.0.5",
+    "jsdom": "28.1.0",
+    "supertest": "7.3.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}
