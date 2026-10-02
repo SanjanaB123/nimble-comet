@@ -23,15 +23,11 @@ export class FixtureTaskRepository implements TaskRepository {
 
   async findTasks(query: TaskQuery): Promise<Task[]> {
     return this.tasks
+      .filter((task) => !query.ids || query.ids.includes(task.id))
       .filter((task) => !query.teamIds || query.teamIds.includes(task.teamId))
       .filter((task) => !query.assigneeIds || query.assigneeIds.includes(task.assigneeId))
       .filter((task) => !query.status || task.status === query.status)
       .map((task) => ({ ...task }));
-  }
-
-  async findTaskById(id: string): Promise<Task | undefined> {
-    const task = this.tasks.find((candidate) => candidate.id === id);
-    return task ? { ...task } : undefined;
   }
 
   async updateTask(id: string, changes: Partial<Pick<Task, "status" | "completedAt">>): Promise<Task> {

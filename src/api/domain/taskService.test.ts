@@ -222,3 +222,40 @@ describe("TaskService.summarizeByRep", () => {
     await expect(service.summarizeByRep(await contextFor("u-marcus"))).rejects.toThrow(ForbiddenError);
   });
 });
+
+describe("TaskService visibility for reads and writes", () => {
+  const data = createFixtureData(referenceTime);
+
+  it("lets a user complete a task exactly when it appears in their own task list", async () => {
+    const mismatches: string[] = [];
+
+    for (const user of data.users) {
+      useData(createFixtureData(referenceTime));
+      const visible = new Set((await service.listTasks(await contextFor(user.id))).map((task) => task.id));
+
+      for (const task of data.tasks) {
+        useData(createFixtureData(referenceTime));
+        const outcome = await service.completeTask(await contextFor(user.id), task.id).then(
+          () => "completed",
+          (error: unknown) => (error instanceof Error ? error.name : String(error)),
+        );
+        const expected = !visible.has(task.id) ? "NotFoundError" : task.status === "completed" ? "ConflictError" : "completed";
+        if (outcome !== expected) mismatches.push(`${user.id} on ${task.id}: expected ${expected}, got ${outcome}`);
+      }
+    }
+
+    expect(mismatches).toEqual([]);
+  });
+
+  it("reports another team's task as not found to a manager", async () => {
+    useData(createFixtureData(referenceTime));
+
+    await expect(service.completeTask(await contextFor("u-dana"), "task-2001")).rejects.toThrow(NotFoundError);
+  });
+
+  it("reports an unknown task as not found", async () => {
+    useData(createFixtureData(referenceTime));
+
+    await expect(service.completeTask(await contextFor("u-dana"), "task-9999")).rejects.toThrow(NotFoundError);
+  });
+});

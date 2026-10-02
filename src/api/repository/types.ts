@@ -35,14 +35,15 @@ export interface Session {
 }
 
 export interface TaskQuery {
+  ids?: string[];
   teamIds?: string[];
   assigneeIds?: string[];
   status?: TaskStatus;
 }
 
 export interface TaskRepository {
+  /** Callers scope queries with `scopeQuery` so visibility is applied in one place. */
   findTasks(query: TaskQuery): Promise<Task[]>;
-  findTaskById(id: string): Promise<Task | undefined>;
   updateTask(id: string, changes: Partial<Pick<Task, "status" | "completedAt">>): Promise<Task>;
 }
 
