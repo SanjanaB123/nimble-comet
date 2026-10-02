@@ -16,7 +16,7 @@ End time: TODO
    and non-`/api` paths returned HTML. **Done**: cheap to fix, makes the API predictable for clients.
 5. **Rep filter silently disappears if the rep list fails to load.** **Done**: now shows an error with retry.
 6. **One shared visibility check for reads and writes.** Bug #1 came from the two drifting apart.
-   **Not done**: a refactor; regression tests now cover the drift instead.
+   **Done**: removes the root cause of bug #1, not just the symptom.
 7. **README lists an `npm run lint` script that doesn't exist** (no ESLint installed). **Not done**: see below.
 8. **Whole table flashes "Loading tasks…" on every reload.** **Not done**: matches the documented
    behaviour; fixing it means changing the shared `useAsync` hook for every view.
@@ -41,17 +41,25 @@ End time: TODO
   tab. Documented in `docs/api.md` and `docs/domain.md`.
 - **Rep list load failure** (`4091eeb`): managers see an error with **Try again** instead
   of a missing filter.
+- **One visibility rule** (`7ddd2a6`): `scopeQuery()` is now the only definition of which tasks
+  a user can see. Listing, the summary, and completing a task all use it, and the unscoped
+  `findTaskById` lookup is gone, so a write path can't skip it. A new test checks every demo user
+  against every task: completing must succeed exactly when the task is in that user's list.
 
 ## What you decided not to do
 
-- **Shared visibility function for reads and writes:** the right long-term fix for bug #1, but a
-  larger refactor than the timebox allowed. Regression tests now pin both paths.
 - **ESLint:** adding it means new dependencies, config, and fixing whatever it reports, which is
   unrelated to user value. The README row is still inaccurate.
 - **Loading flicker, live overdue refresh:** both match the documented behaviour; listed above as follow-ups.
 - **Team summary extras:** completion trends, per-team subtotals, making Team the default tab
   (managers have used Tasks as the landing view for six months).
-- **Unused CSS** (`.task-summary`, `.badge-warning`): left alone, unrelated to the changes.
+- **Unused CSS** (`.task-summary`, `.badge-warning`): checked whether they hinted at planned work
+  (a count strip, a "due soon" badge). Nothing in the code, docs, or history uses them, and a
+  "due soon" state would invent a rule `docs/domain.md` doesn't define. Left alone.
+- **Demo sign-ins for only 2 of 7 reps:** I questioned whether reps should sign in at all, since
+  managers are the main users. The README, `docs/api.md`, and `docs/domain.md` all specify this
+  exact demo set (three managers, two reps) and give reps their own visibility rules, so it
+  matches the requirements. Left as is.
 
 **Assumption:** where code and `docs/` disagreed, I treated the docs as the intended behaviour.
 
@@ -61,7 +69,7 @@ End time: TODO
   component), written before the fix.
 - **Revert check:** after each fix I temporarily restored the old code and confirmed the new tests
   failed again, so they actually guard the bug.
-- **Suite:** 17 tests at the start, 65 now; `npm test`, `npm run typecheck`, and `npm run build`
+- **Suite:** 17 tests at the start, 68 now; `npm test`, `npm run typecheck`, and `npm run build`
   all pass on Node 22.17.1 (`.nvmrc`).
 - **Manual checks:** `curl` against the running API for every status code above, and the browser:
   - Overdue filter shows only the selected rep's tasks.
