@@ -30,9 +30,17 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   } else if (error instanceof DomainError) {
     status = statusByDomainCode[error.code] ?? 400;
     body = { error: { code: error.code, message: error.message } };
+  } else if (isBodyParseError(error)) {
+    status = 400;
+    body = { error: { code: "invalid_request", message: "Request body must be valid JSON" } };
   } else {
     console.error(error);
   }
 
   res.status(status).json(body);
 };
+
+/** `express.json()` reports an unparseable body as an error with this `type`. */
+function isBodyParseError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { type?: unknown }).type === "entity.parse.failed";
+}

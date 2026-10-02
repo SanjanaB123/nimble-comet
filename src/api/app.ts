@@ -47,13 +47,12 @@ export function createApp({ clock = systemClock, data = createFixtureData(clock.
     res.json({ accounts: await directoryService.listDemoAccounts() } satisfies DemoAccountsResponse);
   });
 
-  const authenticated = express.Router();
-  authenticated.use(authenticate(sessionRepository, directoryRepository));
-  authenticated.use(directoryRoutes(directoryService));
-  authenticated.use("/tasks", taskRoutes(taskService));
-  app.use("/api", authenticated);
+  // Authentication is attached per route so unknown paths reach the 404 handler.
+  const auth = authenticate(sessionRepository, directoryRepository);
+  app.use("/api", directoryRoutes(directoryService, auth));
+  app.use("/api/tasks", taskRoutes(taskService, auth));
 
-  app.use("/api", () => {
+  app.use(() => {
     throw new HttpError(404, "not_found", "Route not found");
   });
   app.use(errorHandler);

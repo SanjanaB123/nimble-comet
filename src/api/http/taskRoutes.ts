@@ -1,14 +1,14 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 
 import type { TaskListResponse, TaskResponse } from "../../shared/types";
 import { requestContext } from "../auth/authenticate";
 import type { TaskService } from "../domain/taskService";
 import { optionalString, optionalTaskStatus } from "./query";
 
-export function taskRoutes(taskService: TaskService): Router {
+export function taskRoutes(taskService: TaskService, auth: RequestHandler): Router {
   const router = Router();
 
-  router.get("/", async (req, res) => {
+  router.get("/", auth, async (req, res) => {
     const tasks = await taskService.listTasks(requestContext(res), {
       repId: optionalString(req.query.repId, "repId"),
       status: optionalTaskStatus(req.query.status),
@@ -16,14 +16,14 @@ export function taskRoutes(taskService: TaskService): Router {
     res.json({ tasks } satisfies TaskListResponse);
   });
 
-  router.get("/overdue", async (req, res) => {
+  router.get("/overdue", auth, async (req, res) => {
     const tasks = await taskService.listOverdueTasks(requestContext(res), {
       repId: optionalString(req.query.repId, "repId"),
     });
     res.json({ tasks } satisfies TaskListResponse);
   });
 
-  router.post("/:taskId/complete", async (req, res) => {
+  router.post<"/:taskId/complete", { taskId: string }>("/:taskId/complete", auth, async (req, res) => {
     const task = await taskService.completeTask(requestContext(res), req.params.taskId);
     res.json({ task } satisfies TaskResponse);
   });

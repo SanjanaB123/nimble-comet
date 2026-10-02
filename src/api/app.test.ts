@@ -54,3 +54,67 @@ describe("task visibility over HTTP", () => {
     expect(response.body.task.status).toBe("completed");
   });
 });
+
+describe("HTTP error responses", () => {
+  let app: ReturnType<typeof createApp>;
+
+  beforeEach(() => {
+    app = createApp({ clock: fixedClock(referenceTime), data: createFixtureData(referenceTime) });
+  });
+
+  it("returns 404 for an unknown API route without a token", async () => {
+    const response = await request(app).get("/api/nope");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("not_found");
+  });
+
+  it("returns 404 for an unknown task route without a token", async () => {
+    const response = await request(app).get("/api/tasks/task-1001");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("not_found");
+  });
+
+  it("returns 404 for an unknown API route with a token", async () => {
+    const response = await request(app).get("/api/nope").set("Authorization", "Bearer demo-dana");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("not_found");
+  });
+
+  it.each(["/api/me", "/api/team/reps", "/api/tasks", "/api/tasks/overdue"])(
+    "still returns 401 for %s without a token",
+    async (path) => {
+      const response = await request(app).get(path);
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("unauthenticated");
+    },
+  );
+
+  it("still returns 401 for completing a task without a token", async () => {
+    const response = await request(app).post("/api/tasks/task-1001/complete");
+
+    expect(response.status).toBe(401);
+  });
+
+  it("returns 400 invalid_request for a malformed JSON body", async () => {
+    const response = await request(app)
+      .post("/api/tasks/task-1003/complete")
+      .set("Authorization", "Bearer demo-marcus")
+      .set("Content-Type", "application/json")
+      .send("{bad");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("invalid_request");
+  });
+
+  it("returns a JSON 404 for paths outside /api", async () => {
+    const response = await request(app).get("/nope");
+
+    expect(response.status).toBe(404);
+    expect(response.type).toBe("application/json");
+    expect(response.body.error.code).toBe("not_found");
+  });
+});
